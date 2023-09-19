@@ -12,7 +12,6 @@ colorama_module = importlib.util.find_spec("colorama")
 pandas_module = importlib.util.find_spec("pandas")
 
 
-
 if colorama_module == None:
     while True:
         os.system("cls")
@@ -26,7 +25,7 @@ if colorama_module == None:
                 continue
             
             try:
-                
+                colorama_module = importlib.util.find_spec("colorama")
                 from colorama import Fore
                 from colorama import Back
                 from colorama import Style
@@ -39,7 +38,7 @@ if colorama_module == None:
 
         
 else:
-    colorama_module = importlib.util.find_spec("colorama")
+    
     from colorama import Fore
     from colorama import Back
     from colorama import Style
@@ -75,7 +74,6 @@ else:
 
 HEADER = 64
 FORMAT = "utf-8"
-# SERVER = ("169.254.154.56",2021)
 USERNAME = None
 COLS = 96
 LINES = 48
@@ -100,7 +98,7 @@ def show_banner():
      
     '''
     print(Fore.LIGHTCYAN_EX+banner+Fore.RESET)
-    print( " EXaBids Client v2.0 ".center(COLS,"░"))
+    print( " EXaBids Publisher v2.0 ".center(COLS,"░"))
     print()
     print(f"    {current_date}"+ " "*(COLS-26) + f"{current_time}")
     print()
@@ -118,7 +116,6 @@ def recv_msg():
     msg = client.recv(msg_len).decode(FORMAT)
     # print("Response from server > "+msg)
     return msg
-
 
 def recv_data():
     data_len = int(client.recv(HEADER).decode(FORMAT))
@@ -326,15 +323,10 @@ help        - For this help menu
                         - EX: info highest profit , info lowest price
                 (This will return only 5 rows)
 
-~ BID
-    <SYMBOL> <value>
-        - EX: ABCD 10
-        - EX: XYZ 18.3
-
-~ SUBSCRIBE
-    SUB <SYMBOL> <SYMBOL> <SYMBOL> ...
-        - EX: SUB AAL AAME
-        - EX: SUB AAA AAME XYZ ABCD 
+~ PUBLISH
+    PUB <SYMBOL> <information> <SECURITY>
+        - EX: PUB ABCD "Open Day on 3.4.2022" 74904
+        - EX: PUB XYZ "Close Day on 5.4.2022" 64950
 '''    
 
     while True :
@@ -458,6 +450,7 @@ def get_realtime_data():
         WINDOW = received_data[2]
         user_alerts = received_data[3]
         time.sleep(1)
+        
 
             
 # print("Press ENTER to open console. Type HELP in console to get help menu.")
@@ -482,7 +475,7 @@ if __name__ == "__main__":
         show_banner()
         IP = input("\n\n Enter the ip address of EXaBids server : ")
         try:
-            SERVER = (IP,2021)
+            SERVER = (IP,2022)
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.connect(SERVER)
             break
@@ -524,5 +517,3 @@ if __name__ == "__main__":
         
         else:
             print("\t: Authentication Fail")
-
-

@@ -4,7 +4,7 @@ import threading
 import time
 import datetime
 import pickle
-import importlib
+import importlib.util
 import subprocess
 import ctypes
 
@@ -21,14 +21,18 @@ if colorama_module == None:
             try:
                subprocess.check_call([os.sys.executable, '-m', 'pip', 'install', 'colorama']) 
             except:
-                print("Couldn't install the colorama module. check your connection.")
+                input("Couldn't install the colorama module. check your connection.")
                 continue
             
             try:
+                colorama_module = importlib.util.find_spec("colorama")
+
                 from colorama import Fore
                 from colorama import Back
                 from colorama import Style
+                
                 break
+
             except:
                 print(f"Somthing went wrong. ")
                 continue
@@ -55,11 +59,14 @@ if pandas_module == None:
                 continue
             
             try:
+                pandas_module = importlib.util.find_spec("pandas")
                 import pandas
                 break
+
             except:
                 input(f"Somthing went wrong. ")
                 continue
+
         elif choice == "no":
             os.sys.exit()
 
@@ -70,8 +77,6 @@ else:
 
 HEADER = 64
 FORMAT = "utf-8"
-HOST = socket.gethostbyname(socket.gethostname()) # Get the IP address of computer
-PORT = 2021
 
 COLS = 90
 LINES = 47
@@ -99,49 +104,11 @@ def show_banner():
      
     '''
     print(Fore.LIGHTCYAN_EX+banner+Fore.RESET)
-    print(" EXaBids Server v1.1 ".center(COLS,"░"))
+    print(" EXaBids Server v2.0 ".center(COLS,"░"))
     print()
     print(f"    {current_date}"+ " "*(COLS-26) + f"{current_time}")
     print("")
 
-
-def start_server():
-    global file_name
-    t = time.localtime()
-    current_time = time.strftime("%H:%M:%S", t)
-    try:
-        global HOST
-        global PORT
-    
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Creating the socket
-        server.bind((HOST,PORT)) # Binding the connection
-        with open(file_name, "a+") as alert_file:
-            alert_file.write(f"\t[{current_time}] Server is strating as {HOST}\n")
-
-    except socket.error as err_msg:
-        with open(file_name, "a+") as alert_file:
-            alert_file.write(f"\t[{current_time}] Binding error \n"+ str(err_msg) + "\n\nRetrying binding...\n")
-        server.bind((HOST,PORT))
-
-    try:
-        server.listen() # Listening for new connections
-        with open(file_name, "a+") as alert_file:
-            alert_file.write(f"\t[{current_time}] Server is listening on PORT {PORT}\n")
-
-    except socket.error as err_msg:
-        with open(file_name, "a+") as alert_file:
-            alert_file.write(f"\t[{current_time}] Listening error {str(err_msg)}\n")
-
-    try:
-        while True:
-            con, addr = server.accept()
-            client_ctrl_thread = threading.Thread(target=handle_clients, args=(con, addr))
-            # Create new thread and call to the handle_clients function
-            client_ctrl_thread.start()
-
-    except  socket.error as err_msg:
-        with open(file_name, "a+") as alert_file:
-            alert_file.write(f"\t[{current_time}] Can't accept the connections\n")
 
 
 # Send messages to the client applications
@@ -168,7 +135,7 @@ def recv_msg(con):
         return msg
     except:
         with open(file_name, "a+") as alert_file:
-            alert_file.write(f"\t[{current_time}] A client Refused the connection  \n")
+            alert_file.write(f"\t[{current_time}] A user refused the connection  \n")
         exit()
 
 
@@ -184,291 +151,6 @@ def send_data(con, data):
         with open(file_name, "a+") as alert_file:
             alert_file.write(f"\t[{current_time}] Connection Refused ({user})\n")
         exit()
-
-
-# Authenticate the clients
-def authenticate(con, addr):
-    global user_pass_data
-    global file_name
-    global start_datetime
-    global end_datetime
-
-    t = time.localtime()
-    current_time = time.strftime("%H:%M:%S", t)
-
-    with open("userpass.pickle","rb") as user_data_file:
-        user_pass_data = pickle.load(user_data_file)
-
-    send_msg(con, "authentication-Required")
-    response = recv_msg(con)
-    print(response)
-
-    if response == "sign-in": 
-        try:
-            send_msg(con, "request-username")
-            user = recv_msg(con)
-
-            while True:
-                if user not in user_pass_data.keys(): # Check whether the username is a true one
-                    send_msg(con, "invalid-username")
-                    user = recv_msg(con)
-            
-                else:
-                    send_msg(con, "request-password")
-                    while True:
-                        passwd = recv_msg(con)
-                        if passwd != user_pass_data[user]: # Check whether the password is correct acording to the username
-                            send_msg(con, "invalid-password")
-                        else:
-                            send_msg(con, "sign-in-successful")
-                            send_msg(con, start_datetime.strftime("%Y-%m-%d %H:%M:%S"))
-                            send_msg(con, end_datetime.strftime("%Y-%m-%d %H:%M:%S"))
-
-                            with open(file_name, "a+") as alert_file:
-                                alert_file.write(f"\t[{current_time}] New client connected :: {user}\n")
-                            return ['sign-in', user, passwd]
-                            
-        except:
-            with open(file_name, "a+") as alert_file:
-                alert_file.write(f"\t[{current_time}]  Sign-in error\n")
-
-
-    elif response == "sign-up":
-        try:
-
-            send_msg(con, "request-username")
-            while True:
-                user = recv_msg(con)
-                if user in user_pass_data.keys():
-                    send_msg(con, "username-exist")
-
-                else:
-                    send_msg(con, "request-password")
-                    passwd = recv_msg(con)
-
-                    if (user and passwd):
-                        user_pass_data[user] = passwd
-                        with open("userpass.pickle","wb") as user_data_file:
-                            pickle.dump(user_pass_data, user_data_file)
-                        
-                        send_msg(con, "sign-up-successful")
-                        send_msg(con, start_datetime.strftime("%Y-%m-%d %H:%M:%S"))
-                        send_msg(con, end_datetime.strftime("%Y-%m-%d %H:%M:%S"))
-                        with open(file_name, "a+") as alert_file:
-                            alert_file.write(f"\t[{current_time}] New client joined ({user})\n")
-
-                        return ['sign-up', user, passwd]
-                    
-        except:
-            with open(file_name, "a+") as alert_file:
-                alert_file.write(f"\t[{current_time}]  Sign-up error\n")
-
-
-
-def realtime_data(con, addr, window, ctrl_data, user_alerts):
-    global stocks
-    global kill
-    global start_datetime
-    global start_datetime_int
-    global end_datetime
-    global end_datetime_int
-    global current_datetime
-    global current_datetime_int
-    global file_name
-
-    
-
-    while True:
-        t = time.localtime()
-        current_time = time.strftime("%H:%M:%S", t)
-
-        # for i in range(len(stocks['END TIME'][:])) :
-        #     stock_time_difference = stocks['END TIME'][i] - datetime.datetime.now()
-        #     stocks['END TIME'][i] =    
-
-
-        if current_datetime_int == start_datetime_int:
-            user_alerts.append(f"[{current_time}] Auction started !")
-            with open(file_name, "a+") as alert_file:
-                alert_file.write(f"\t[{current_time}] Auction started !\n")
-
-        elif current_datetime_int == end_datetime_int:
-            user_alerts.append(f"[{current_time}] Auction ended !")
-            with open(file_name, "a+") as alert_file:
-                alert_file.write(f"\t[{current_time}] Auction ended !\n")
-        
-        if kill[addr] == 0:
-
-            if window == 1:
-                temp_stocks = stocks.sort_values(ctrl_data[0], ascending=ctrl_data[1]).head(5).to_dict("tight")
-                temp_user_alerts = user_alerts[:-6:-1]
-
-
-            elif window == 2:
-                temp_stocks = []
-                for sym in ctrl_data:
-                    temp_stocks.append(stocks.loc[stocks["Symbol"] == sym])
-                temp_stocks = pandas.concat(temp_stocks).head(5).to_dict("tight")
-                temp_user_alerts = user_alerts[:-14:-1]
-
-            elif window == 3:
-                temp_user_alerts = []
-                temp_stocks = []
-
-            st_en_cur_time = [start_datetime, end_datetime, current_time]
-            data = [temp_stocks, st_en_cur_time, window, temp_user_alerts]
-            send_data(con, data)
-            time.sleep(1)
-
-        elif kill[addr] == 1:
-            return
-
-
-
-
-
-def handle_clients(con, addr):
-    global kill
-    global stocks
-    global file_name
-    global current_datetime
-    global current_datetime_int
-    global end_datetime
-    global end_datetime_int
-    user_alerts = []
-    session = authenticate(con, addr)
-    kill[addr] = 0
-    
-    
-    if session:
-
-        t = time.localtime()
-        current_time = time.strftime("%H:%M:%S", t)
-
-        user_alerts.append(f"[{current_time}] Auction start time : {start_datetime}")
-        user_alerts.append(f"[{current_time}] Auction end time : {end_datetime}")
-
-        ctrl_data = ["Profit", False]
-        window = 1
-        realtime_data_thread = threading.Thread(target=realtime_data, args=(con, addr, window, ctrl_data, user_alerts))
-        realtime_data_thread.start()
-
-
-        while True:
-            msg = recv_msg(con)
-            msg = msg.split(",")
-            command = msg[0]
-            user = msg[1]
-            command = command.split()
-
-            if len(command) > 0:
-                t = time.localtime()
-                current_time = time.strftime("%H:%M:%S", t)
-                if command[0] == "info":
-
-                    if command[1] == "highest":
-                        window = 1
-                        if command[2] == "price":
-                            ctrl_data = ["Price",False]
-                        elif command[2] == "profit":
-                            ctrl_data = ["Profit", False]
-                        else:
-                            user_alerts.append(f'[{current_time}] Invalid Command! <{command[2]}>. Type "help" to get help menu.')
-
-                    elif command[1] == "lowest":
-                        window = 1
-                        if command[2] == "price":
-                            ctrl_data = ["Price",True]
-                        elif command[2] == "profit":
-                            ctrl_data = ["Profit", True]
-                        else:
-                            user_alerts.append(f'[{current_time}] Invalid Command! <{command[2]}>. Type "help" to get help menu.')
-
-
-                    elif command[1] == "stock":
-                        if len(command) > 2:
-                            ctrl_data = command[2:]
-                            window = 2
-                    else:
-                        user_alerts.append(f'[{current_time}] Invalid Command! <{command[1]}>. Type "help" to get help menu.')                                            
-                
-                elif command[0] == "help":
-                    window = 3
-
-
-
-
-                elif command[0] in list(stocks["Symbol"]):
-                    current_datetime = datetime.datetime.now()
-                    current_datetime_int = int(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-                    t = time.localtime()
-                    current_time = time.strftime("%H:%M:%S", t)
-                    
-                    if (current_datetime_int >= start_datetime_int ) and (current_datetime_int <= end_datetime_int):
-                        
-                        if len(command) > 1:
-
-                            stock_time = stocks.loc[stocks["Symbol"] == command[0], "END TIME"].to_string().split('   ')[1]
-                            stock_time = datetime.datetime.strptime(stock_time, "%Y-%m-%d %H:%M:%S")
-                            stock_time_difference = stock_time - datetime.datetime.now()
-
-                            if  stock_time_difference.days >= 0 :
-                                if (float(command[1]) > stocks.loc[stocks["Symbol"] == command[0], "Price"]).bool():
-
-                                    stocks.loc[stocks["Symbol"] == command[0], "Price"] = float(command[1])
-                                    
-                                    user_alerts.append(f'[{current_time}] Successfully Bided! {command[0]} {command[1]}')
-                                    
-                                    with open(file_name,"a+") as alert_file:
-                                        alert_file.write(f'\t[{current_time}] {user} Successfully Bided! {command[0]} {command[1]}\n')
-
-
-
-                                    if stock_time_difference.seconds <= 60:
-                                        stocks.loc[stocks["Symbol"] == command[0], "END TIME"] = end_datetime + datetime.timedelta(seconds=60)
-                                        user_alerts.append(f"[{current_time}] {command[0]} stock time extended in 60sec. Endtime : {end_datetime}")
-
-                                        with open(file_name, "a+") as alert_file:
-                                            alert_file.write(f"\t[{current_time}] {command[0]} stock time extended in 60sec. Endtime : {end_datetime}\n")
-
-
-                                        end_datetime = end_datetime + datetime.timedelta(seconds=60)
-                                        user_alerts.append(f"[{current_time}] Auction time extended in 60sec. Endtime : {end_datetime}")
-
-                                        with open(file_name, "a+") as alert_file:
-                                            alert_file.write(f"\t[{current_time}] Auction time extended in 60sec. Endtime : {end_datetime}\n")
-
-
-                                else:
-                                    user_alerts.append(f'[{current_time}] Invalid Bid {command[0]} {command[1]}')
-
-                            else:
-                                user_alerts.append(f'[{current_time}] Blocked! Bidding ended for "{command[0]}" at {end_datetime} ')
-                        else:
-                            user_alerts.append(f'[{current_time}] Invalid Bid {command[0]} ')
-                    
-                    elif current_datetime_int < start_datetime_int :
-                        user_alerts.append(f'[{current_time}] Bloked! Auction will start at {start_datetime} ')
-
-                    elif current_datetime_int > end_datetime_int :
-                        user_alerts.append(f'[{current_time}] Blocked! Auction ended at {end_datetime} ')
-
-
-                elif command[0].isupper() :
-                    t = time.localtime()
-                    user_alerts.append(f'[{current_time}] Invalid Stock Code {command[0]} ')
-                
-                else:
-                    t = time.localtime()
-                    user_alerts.append(f'[{current_time}] Invalid Command! <{command[0]}>. Type "help" to get help menu.')                    
-
-            kill[addr] = 1
-            realtime_data_thread.join()
-
-            kill[addr] = 0
-            realtime_data_thread = threading.Thread(target=realtime_data, args=(con, addr, window, ctrl_data, user_alerts))
-            realtime_data_thread.start()
-
 
 
 
@@ -523,6 +205,652 @@ def print_data():
 
 
 
+##############################################################  CLIENT  #############################################################
+
+
+def start_client():
+    global file_name
+    t = time.localtime()
+    current_time = time.strftime("%H:%M:%S", t)
+    try:
+        HOST = socket.gethostbyname(socket.gethostname()) # Get the IP address of computer
+        PORT = 2021
+    
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Creating the socket
+        server.bind((HOST,PORT)) # Binding the connection
+        with lock:
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}] Server is strating as {HOST}\n")
+
+    except socket.error as err_msg:
+        with open(file_name, "a+") as alert_file:
+            alert_file.write(f"\t[{current_time}] Binding error \n"+ str(err_msg) + "\n\nRetrying binding...\n")
+        server.bind((HOST,PORT))
+
+    try:
+        server.listen() # Listening for new connections
+        with lock:
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}] Server is listening for clients on PORT {PORT}\n")
+
+    except socket.error as err_msg:
+        with open(file_name, "a+") as alert_file:
+            alert_file.write(f"\t[{current_time}] Listening error {str(err_msg)}\n")
+
+    try:
+        while True:
+            con, addr = server.accept()
+            client_ctrl_thread = threading.Thread(target=handle_clients, args=(con, addr))
+            # Create new thread and call to the handle_clients function
+            client_ctrl_thread.start()
+
+    except  socket.error as err_msg:
+        with open(file_name, "a+") as alert_file:
+            alert_file.write(f"\t[{current_time}] Can't accept the connections\n")
+
+
+
+def authenticate_clients(con, addr):
+    global client_user_pass_data
+    global file_name
+    global start_datetime
+    global end_datetime
+
+    t = time.localtime()
+    current_time = time.strftime("%H:%M:%S", t)
+
+    with open("client_userpass.pickle","rb") as user_data_file:
+        client_user_pass_data = pickle.load(user_data_file)
+
+    send_msg(con, "authentication-Required")
+    response = recv_msg(con)
+    print(response)
+
+    if response == "sign-in": 
+        try:
+            send_msg(con, "request-username")
+            user = recv_msg(con)
+
+            while True:
+                if user not in client_user_pass_data.keys(): # Check whether the username is a true one
+                    send_msg(con, "invalid-username")
+                    user = recv_msg(con)
+            
+                else:
+                    send_msg(con, "request-password")
+                    while True:
+                        passwd = recv_msg(con)
+                        if passwd != client_user_pass_data[user]: # Check whether the password is correct acording to the username
+                            send_msg(con, "invalid-password")
+                        else:
+                            send_msg(con, "sign-in-successful")
+                            send_msg(con, start_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+                            send_msg(con, end_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+
+                            with open(file_name, "a+") as alert_file:
+                                alert_file.write(f"\t[{current_time}] Client connected :: {user}\n")
+                            return ['sign-in', user, passwd]
+                            
+        except:
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}]  Sign-in error\n")
+
+
+    elif response == "sign-up":
+        try:
+
+            send_msg(con, "request-username")
+            while True:
+                user = recv_msg(con)
+                if user in client_user_pass_data.keys():
+                    send_msg(con, "username-exist")
+
+                else:
+                    send_msg(con, "request-password")
+                    passwd = recv_msg(con)
+
+                    if (user and passwd):
+                        client_user_pass_data[user] = passwd
+                        with open("client_userpass.pickle","wb") as user_data_file:
+                            pickle.dump(client_user_pass_data, user_data_file)
+                        
+                        send_msg(con, "sign-up-successful")
+                        send_msg(con, start_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+                        send_msg(con, end_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+                        with open(file_name, "a+") as alert_file:
+                            alert_file.write(f"\t[{current_time}] New client joined ({user})\n")
+
+                        return ['sign-up', user, passwd]
+                    
+        except:
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}]  Sign-up error\n")
+
+
+
+def client_realtime_data(con, addr, user, window, ctrl_data, client_alerts):
+    global stocks
+    global kill
+    global start_datetime
+    global start_datetime_int
+    global end_datetime
+    global end_datetime_int
+    global current_datetime
+    global current_datetime_int
+    global file_name
+    global stock_subscribers
+    global stock_updates
+
+    
+
+    while True:
+        t = time.localtime()
+        current_time = time.strftime("%H:%M:%S", t)
+
+        # for i in range(len(stocks['END TIME'][:])) :
+        #     stock_time_difference = stocks['END TIME'][i] - datetime.datetime.now()
+        #     stocks['END TIME'][i] =    
+
+
+        if current_datetime_int == start_datetime_int:
+            client_alerts.append(f"[{current_time}] Auction started !")
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}] Auction started !\n")
+
+        elif current_datetime_int == end_datetime_int:
+            client_alerts.append(f"[{current_time}] Auction ended !")
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}] Auction ended !\n")
+
+        for symbol in stock_subscribers.keys():
+            if user in stock_subscribers[symbol]:
+                for stock_update_msg in stock_updates[symbol]:
+                    if stock_update_msg not in client_alerts:
+                        client_alerts.append(stock_update_msg)
+        
+        if kill[addr] == 0:
+
+            if window == 1:
+                temp_stocks = stocks.sort_values(ctrl_data[0], ascending=ctrl_data[1]).head(5).to_dict("tight")
+                temp_client_alerts = client_alerts[:-6:-1]
+
+
+            elif window == 2:
+                temp_stocks = []
+                for sym in ctrl_data:
+                    temp_stocks.append(stocks.loc[stocks["Symbol"] == sym])
+                temp_stocks = pandas.concat(temp_stocks).head(5).to_dict("tight")
+                temp_client_alerts = client_alerts[:-14:-1]
+
+            elif window == 3:
+                temp_client_alerts = []
+                temp_stocks = []
+
+            st_en_cur_time = [start_datetime, end_datetime, current_time]
+            data = [temp_stocks, st_en_cur_time, window, temp_client_alerts]
+            send_data(con, data)
+            time.sleep(1)
+
+        elif kill[addr] == 1:
+            return
+
+
+
+def handle_clients(con, addr):
+    global kill
+    global stocks
+    global file_name
+    global current_datetime
+    global current_datetime_int
+    global end_datetime
+    global end_datetime_int
+    client_alerts = []
+    session = authenticate_clients(con, addr)
+    user = session[1]
+    kill[addr] = 0
+    
+    
+    if session:
+
+        t = time.localtime()
+        current_time = time.strftime("%H:%M:%S", t)
+
+        client_alerts.append(f"[{current_time}] Auction start time : {start_datetime}")
+        client_alerts.append(f"[{current_time}] Auction end time : {end_datetime}")
+
+
+        ctrl_data = ["Profit", False]
+        window = 1
+        client_realtime_data_thread = threading.Thread(target=client_realtime_data, args=(con, addr, user, window, ctrl_data, client_alerts))
+        client_realtime_data_thread.start()
+
+
+        while True:
+            msg = recv_msg(con)
+            msg = msg.split(",")
+            command = msg[0]
+            user = msg[1]
+            command = command.split()
+
+            if len(command) > 0:
+                t = time.localtime()
+                current_time = time.strftime("%H:%M:%S", t)
+                if command[0] == "info":
+
+                    if command[1] == "highest":
+                        window = 1
+                        if command[2] == "price":
+                            ctrl_data = ["Price",False]
+                        elif command[2] == "profit":
+                            ctrl_data = ["Profit", False]
+                        else:
+                            client_alerts.append(f'[{current_time}] Invalid Command! <{command[2]}>. Type "help" to get help menu.')
+
+                    elif command[1] == "lowest":
+                        window = 1
+                        if command[2] == "price":
+                            ctrl_data = ["Price",True]
+                        elif command[2] == "profit":
+                            ctrl_data = ["Profit", True]
+                        else:
+                            client_alerts.append(f'[{current_time}] Invalid Command! <{command[2]}>. Type "help" to get help menu.')
+
+
+                    elif command[1] == "stock":
+                        if len(command) > 2:
+                            ctrl_data = command[2:]
+                            window = 2
+                    else:
+                        client_alerts.append(f'[{current_time}] Invalid Command! <{command[1]}>. Type "help" to get help menu.')                                            
+                
+                elif command[0] == "help":
+                    window = 3
+
+                elif command[0] == "SUB":
+                    for symbol in command[1:]:
+                        if symbol in list(stocks["Symbol"]):
+                            stock_subscribers[symbol].append(user)
+                            client_alerts.append(f'[{current_time}] Successfully Subscribed! {symbol}')
+                        else:
+                            client_alerts.append(f'[{current_time}] Invalid Code {symbol}')
+
+
+
+
+                elif command[0] in list(stocks["Symbol"]):
+                    current_datetime = datetime.datetime.now()
+                    current_datetime_int = int(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+                    t = time.localtime()
+                    current_time = time.strftime("%H:%M:%S", t)
+                    
+                    if (current_datetime_int >= start_datetime_int ) and (current_datetime_int <= end_datetime_int):
+                        
+                        if len(command) > 1:
+
+                            stock_time = stocks.loc[stocks["Symbol"] == command[0], "END TIME"].to_string().split('   ')[1]
+                            stock_time = datetime.datetime.strptime(stock_time, "%Y-%m-%d %H:%M:%S")
+                            stock_time_difference = stock_time - datetime.datetime.now()
+
+                            if  stock_time_difference.days >= 0 :
+                                if (float(command[1]) > stocks.loc[stocks["Symbol"] == command[0], "Price"]).bool():
+
+                                    stocks.loc[stocks["Symbol"] == command[0], "Price"] = float(command[1])
+                                    
+                                    client_alerts.append(f'[{current_time}] Successfully Bided! {command[0]} {command[1]}')
+                                    
+                                    with open(file_name,"a+") as alert_file:
+                                        alert_file.write(f'\t[{current_time}] {user} Successfully Bided! {command[0]} {command[1]}\n')
+
+                                    stock_updates[command[0]].append(f'[{current_time}] {command[0]} BID {command[1]}')
+
+
+
+                                    if stock_time_difference.seconds <= 60:
+                                        stocks.loc[stocks["Symbol"] == command[0], "END TIME"] = end_datetime + datetime.timedelta(seconds=60)
+                                        client_alerts.append(f"[{current_time}] {command[0]} stock time extended in 60sec. Endtime : {end_datetime}")
+
+                                        with open(file_name, "a+") as alert_file:
+                                            alert_file.write(f"\t[{current_time}] {command[0]} stock time extended in 60sec. Endtime : {end_datetime}\n")
+
+
+                                        end_datetime = end_datetime + datetime.timedelta(seconds=60)
+                                        client_alerts.append(f"[{current_time}] Auction time extended in 60sec. Endtime : {end_datetime}")
+
+                                        with open(file_name, "a+") as alert_file:
+                                            alert_file.write(f"\t[{current_time}] Auction time extended in 60sec. Endtime : {end_datetime}\n")
+
+
+                                else:
+                                    client_alerts.append(f'[{current_time}] Invalid Bid {command[0]} {command[1]}')
+
+                            else:
+                                client_alerts.append(f'[{current_time}] Blocked! Bidding ended for "{command[0]}" at {end_datetime} ')
+                        else:
+                            client_alerts.append(f'[{current_time}] Invalid Bid {command[0]} ')
+                    
+                    elif current_datetime_int < start_datetime_int :
+                        client_alerts.append(f'[{current_time}] Bloked! Auction will start at {start_datetime} ')
+
+                    elif current_datetime_int > end_datetime_int :
+                        client_alerts.append(f'[{current_time}] Blocked! Auction ended at {end_datetime} ')
+
+
+                elif command[0].isupper() :
+                    t = time.localtime()
+                    client_alerts.append(f'[{current_time}] Invalid Stock Code {command[0]} ')
+                
+                else:
+                    t = time.localtime()
+                    client_alerts.append(f'[{current_time}] Invalid Command! <{command[0]}>. Type "help" to get help menu.')                    
+
+            kill[addr] = 1
+            client_realtime_data_thread.join()
+
+            kill[addr] = 0
+            client_realtime_data_thread = threading.Thread(target=client_realtime_data, args=(con, addr, user, window, ctrl_data, client_alerts))
+            client_realtime_data_thread.start()
+
+
+
+
+
+
+
+############################################################# Publishers ##########################################################
+
+def start_publisher():
+    global file_name
+    t = time.localtime()
+    current_time = time.strftime("%H:%M:%S", t)
+    try:
+        HOST = socket.gethostbyname(socket.gethostname()) # Get the IP address of computer
+        PORT = 2022
+        # with open(file_name, "a+") as alert_file:
+        #     alert_file.write(f"\t[{current_time}] Server is strating as {HOST}\n")
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Creating the socket
+        server.bind((HOST,PORT)) # Binding the connection
+
+    except socket.error as err_msg:
+        with open(file_name, "a+") as alert_file:
+            alert_file.write(f"\t[{current_time}] Binding error \n"+ str(err_msg) + "\n\nRetrying binding...\n")
+        server.bind((HOST,PORT))
+
+    try:
+        server.listen() # Listening for new connections
+        with lock:
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}] Server is listening for publishers on PORT {PORT}\n")
+
+    except socket.error as err_msg:
+        with open(file_name, "a+") as alert_file:
+            alert_file.write(f"\t[{current_time}] Listening error {str(err_msg)}\n")
+
+    try:
+        while True:
+            con, addr = server.accept()
+            publisher_ctrl_thread = threading.Thread(target=handle_publishers, args=(con, addr))
+            # Create new thread and call to the handle_clients function
+            publisher_ctrl_thread.start()
+
+    except  socket.error as err_msg:
+        with open(file_name, "a+") as alert_file:
+            alert_file.write(f"\t[{current_time}] Can't accept the connections\n")
+
+
+
+def authenticate_publishers(con, addr):
+    global publisher_user_pass_data
+    global file_name
+    global start_datetime
+    global end_datetime
+
+    t = time.localtime()
+    current_time = time.strftime("%H:%M:%S", t)
+
+    with open("publisher_userpass.pickle","rb") as user_data_file:
+        publisher_user_pass_data = pickle.load(user_data_file)
+
+    send_msg(con, "authentication-Required")
+    response = recv_msg(con)
+    print(response)
+
+    if response == "sign-in": 
+        try:
+            send_msg(con, "request-username")
+            user = recv_msg(con)
+
+            while True:
+                if user not in publisher_user_pass_data.keys(): # Check whether the username is a true one
+                    send_msg(con, "invalid-username")
+                    user = recv_msg(con)
+            
+                else:
+                    send_msg(con, "request-password")
+                    while True:
+                        passwd = recv_msg(con)
+                        if passwd != publisher_user_pass_data[user]: # Check whether the password is correct acording to the username
+                            send_msg(con, "invalid-password")
+                        else:
+                            send_msg(con, "sign-in-successful")
+                            send_msg(con, start_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+                            send_msg(con, end_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+
+                            with open(file_name, "a+") as alert_file:
+                                alert_file.write(f"\t[{current_time}] Publisher connected :: {user}\n")
+                            return ['sign-in', user, passwd]
+                            
+        except:
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}]  Sign-in error\n")
+
+
+    elif response == "sign-up":
+        try:
+
+            send_msg(con, "request-username")
+            while True:
+                user = recv_msg(con)
+                if user in publisher_user_pass_data.keys():
+                    send_msg(con, "username-exist")
+
+                else:
+                    send_msg(con, "request-password")
+                    passwd = recv_msg(con)
+
+                    if (user and passwd):
+                        publisher_user_pass_data[user] = passwd
+                        with open("publisher_userpass.pickle","wb") as user_data_file:
+                            pickle.dump(publisher_user_pass_data, user_data_file)
+                        
+                        send_msg(con, "sign-up-successful")
+                        send_msg(con, start_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+                        send_msg(con, end_datetime.strftime("%Y-%m-%d %H:%M:%S"))
+                        with open(file_name, "a+") as alert_file:
+                            alert_file.write(f"\t[{current_time}] New publisher joined ({user})\n")
+
+                        return ['sign-up', user, passwd]
+                    
+        except:
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}]  Sign-up error\n")
+
+
+
+def publisher_realtime_data(con, addr, user, window, ctrl_data, publisher_alerts):
+    global stocks
+    global kill
+    global start_datetime
+    global start_datetime_int
+    global end_datetime
+    global end_datetime_int
+    global current_datetime
+    global current_datetime_int
+    global file_name
+    global stock_subscribers
+    global stock_updates
+    
+
+    while True:
+        t = time.localtime()
+        current_time = time.strftime("%H:%M:%S", t)
+
+        # for i in range(len(stocks['END TIME'][:])) :
+        #     stock_time_difference = stocks['END TIME'][i] - datetime.datetime.now()
+        #     stocks['END TIME'][i] =    
+
+
+        if current_datetime_int == start_datetime_int:
+            publisher_alerts.append(f"[{current_time}] Auction started !")
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}] Auction started !\n")
+
+        elif current_datetime_int == end_datetime_int:
+            publisher_alerts.append(f"[{current_time}] Auction ended !")
+            with open(file_name, "a+") as alert_file:
+                alert_file.write(f"\t[{current_time}] Auction ended !\n")
+        
+        if kill[addr] == 0:
+
+            if window == 1:
+                temp_stocks = stocks.sort_values(ctrl_data[0], ascending=ctrl_data[1]).head(5).to_dict("tight")
+                temp_publisher_alerts = publisher_alerts[:-6:-1]
+
+
+            elif window == 2:
+                temp_stocks = []
+                for sym in ctrl_data:
+                    temp_stocks.append(stocks.loc[stocks["Symbol"] == sym])
+                temp_stocks = pandas.concat(temp_stocks).head(5).to_dict("tight")
+                temp_publisher_alerts = publisher_alerts[:-14:-1]
+
+            elif window == 3:
+                temp_publisher_alerts = []
+                temp_stocks = []
+
+            st_en_cur_time = [start_datetime, end_datetime, current_time]
+            data = [temp_stocks, st_en_cur_time, window, temp_publisher_alerts]
+            send_data(con, data)
+            time.sleep(1)
+
+        elif kill[addr] == 1:
+            return
+
+
+
+def handle_publishers(con, addr):
+    global kill
+    global stocks
+    global file_name
+    global current_datetime
+    global current_datetime_int
+    global end_datetime
+    global end_datetime_int
+    publisher_alerts = []
+
+
+    session = authenticate_publishers(con, addr)
+    user = session[1]
+
+    kill[addr] = 0
+    
+    if session:
+
+        t = time.localtime()
+        current_time = time.strftime("%H:%M:%S", t)
+
+        publisher_alerts.append(f"[{current_time}] Auction start time : {start_datetime}")
+        publisher_alerts.append(f"[{current_time}] Auction end time : {end_datetime}")
+
+        ctrl_data = ["Profit", False]
+        window = 1
+        publisher_realtime_data_thread = threading.Thread(target=publisher_realtime_data, args=(con, addr, user, window, ctrl_data, publisher_alerts))
+        publisher_realtime_data_thread.start()
+
+
+        while True:
+            msg = recv_msg(con)
+            msg = msg.split(",")
+            command = msg[0]
+            user = msg[1]
+
+            if '"' not in command:
+                command = command.split()
+
+            elif command.count('"') == 2:
+                command = command.split('"')
+                stock_update_msg = command[1]
+                security_code = command[2].strip()
+                command = command[0].strip().split()
+
+            else:
+                publisher_alerts.append(f"[{current_time}] Invalied Syntax!. Use double quotes correctly")
+
+
+            if len(command) > 0:
+                t = time.localtime()
+                current_time = time.strftime("%H:%M:%S", t)
+                if command[0] == "info":
+
+                    if command[1] == "highest":
+                        window = 1
+                        if command[2] == "price":
+                            ctrl_data = ["Price",False]
+                        elif command[2] == "profit":
+                            ctrl_data = ["Profit", False]
+                        else:
+                            publisher_alerts.append(f'[{current_time}] Invalid Command! <{command[2]}>. Type "help" to get help menu.')
+
+                    elif command[1] == "lowest":
+                        window = 1
+                        if command[2] == "price":
+                            ctrl_data = ["Price",True]
+                        elif command[2] == "profit":
+                            ctrl_data = ["Profit", True]
+                        else:
+                            publisher_alerts.append(f'[{current_time}] Invalid Command! <{command[2]}>. Type "help" to get help menu.')
+
+
+                    elif command[1] == "stock":
+                        if len(command) > 2:
+                            ctrl_data = command[2:]
+                            window = 2
+                    else:
+                        publisher_alerts.append(f'[{current_time}] Invalid Command! <{command[1]}>. Type "help" to get help menu.')                                            
+                
+                elif command[0] == "help":
+                    window = 3
+
+
+                elif command[0] == "PUB":
+
+                    if command[1] in list(stocks["Symbol"]):
+                        current_datetime = datetime.datetime.now()
+                        current_datetime_int = int(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+                        t = time.localtime()
+                        current_time = time.strftime("%H:%M:%S", t)
+
+                        if (security_code == str(stocks.loc[stocks["Symbol"] == command[1], "Security"]).split()[1].strip() ):
+                            stock_updates[command[1]].append(f'[{current_time}] {command[1]} "{stock_update_msg}"')
+                            publisher_alerts.append(f'[{current_time}] Successfully Published! {command[1]} "{stock_update_msg}" ')
+
+                        else:
+                            publisher_alerts.append(f'[{current_time}] Invalid Security Code {command[1]} ')
+
+
+                    elif command[1].isupper() :
+                        t = time.localtime()
+                        publisher_alerts.append(f'[{current_time}] Invalid Stock Code {command[1]} ')
+                    
+                else:
+                    t = time.localtime()
+                    publisher_alerts.append(f'[{current_time}] Invalid Command! <{command[0]}>. Type "help" to get help menu.')                    
+
+            kill[addr] = 1
+            publisher_realtime_data_thread.join()
+
+            kill[addr] = 0
+            publisher_realtime_data_thread = threading.Thread(target=publisher_realtime_data, args=(con, addr, user, window, ctrl_data, publisher_alerts))
+            publisher_realtime_data_thread.start()
 
 
 
@@ -531,10 +859,18 @@ def print_data():
 
 if __name__ == "__main__":
     show_banner()
-    user_pass_data = {}
+    client_user_pass_data = {}
+    publisher_user_pass_data = {}
     kill = {}
+    stock_updates = {}
+    stock_subscribers = {}
 
     stocks = pandas.read_csv("stocks.csv")
+
+    for symbol in list(stocks["Symbol"]):
+        stock_updates[symbol] = []
+        stock_subscribers[symbol] = []
+
 
     current_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -612,19 +948,9 @@ if __name__ == "__main__":
     print_data_thread = threading.Thread(target=print_data)
     print_data_thread.start()
 
+    lock = threading.Lock()
 
-    start_server()
+    start_publisher_thread = threading.Thread(target=start_publisher)
+    start_publisher_thread.start()
 
-
-    
-    # print("Run1")
-
-    # user_pass_data = {"Tharusha": "password"}
-
-    # user_data_file = open("userpass.pickle","wb")
-
-    # pickle.dump(user_pass_data, user_data_file)
-
-    # user_data_file.close()
-    # print("Run2")
-
+    start_client()
