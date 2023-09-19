@@ -1,0 +1,33 @@
+	[16:12:48] Auction start time : 2023-03-28 16:20:00
+	[16:12:48] Auction end time : 2023-03-28 16:40:00
+	[16:12:48] Server is strating as 192.168.1.120
+	[16:12:48] Server is listening for publishers on PORT 2022
+	[16:12:48] Server is listening for clients on PORT 2021
+	[16:13:18] Publisher connected :: Tharusha
+	[16:15:51] New client joined (Tharush)
+	[16:17:58] Client connected :: thxrxsh
+	[16:20:01] Auction started !
+	[16:20:01] Auction started !
+	[16:20:01] Auction started !
+	[16:22:01] thxrxsh Successfully Bided! CALM 10
+	[16:22:36] Tharush Successfully Bided! EROC 10
+	[16:12:48] A user refused the connection  
+	[16:23:15] Client connected :: Induwara
+	[16:23:47] thxrxsh Successfully Bided! EROC 20
+	[16:24:16] Induwara Successfully Bided! EROC 30
+	[16:39:35] Induwara Successfully Bided! CNSL 5
+	[16:39:35] CNSL stock time extended in 60sec. Endtime : 2023-03-28 16:40:00
+	[16:39:35] Auction time extended in 60sec. Endtime : 2023-03-28 16:41:00
+	[16:39:56] Induwara Successfully Bided! BBRY 5
+	[16:39:56] BBRY stock time extended in 60sec. Endtime : 2023-03-28 16:41:00
+	[16:39:56] Auction time extended in 60sec. Endtime : 2023-03-28 16:42:00
+	[16:41:13] Induwara Successfully Bided! BBRY 10
+	[16:41:13] BBRY stock time extended in 60sec. Endtime : 2023-03-28 16:42:00
+	[16:41:13] Auction time extended in 60sec. Endtime : 2023-03-28 16:43:00
+	[16:41:27] Induwara Successfully Bided! BBRY 100
+	[16:43:00] Auction ended !
+	[16:43:00] Auction ended !
+	[16:43:01] Auction ended !
+	[16:12:48] A user refused the connection  
+	[16:12:48] A user refused the connection  
+	[16:12:48] A user refused the connection  
